@@ -1,5 +1,6 @@
 obj-m := globalmem.o
-KERNEL_DIR :=/home/fniu/projects/self-S/linux/kernel/linux
+
+KERNEL_DIR :=/home/fniu/projects/self-S/linux/kernel/rasp_linux
 default:
 	make -C $(KERNEL_DIR) M=$(shell pwd) modules
 install:

@@ -1,17 +1,22 @@
-#include <linux/module.h>
 #include <linux/init.h>
+#include <linux/module.h>
+#include <linux/cdev.h>
+#include <linux/device.h>
+#include <linux/kdev_t.h>
 #include <linux/fs.h>
 #include <linux/uaccess.h>
 #include <linux/slab.h>
-#include <linux/cdev.h>
+
 
  
 #define GLOBALMEM_SIZE 0X1000 /*全局内存最大4KB*/
 #define MEM_CLEAR 0x1 /*清零全局内存*/
-#define GLOBALMEM_MAJOR 254
+#define GLOBALMEM_MAJOR 220
  
 static int globalmem_major = GLOBALMEM_MAJOR;/*预设的globalmem的主设备号*/
- 
+static struct class *pclass;
+static dev_t devno;
+
 /*globalmem的设备结构体：包含了对应于globalmem字符设备的cdev 和 使用内存mem[GLOBALMEM_SIZE]*/
 struct globalmem_dev
 {
@@ -166,7 +171,8 @@ static const struct file_operations globalmem_fops=
 /*初始化并注册cdev*/
 static void globalmem_setup_cdev(struct globalmem_dev *dev,int index)
 {
- int err,devno = MKDEV(globalmem_major,index);
+ int err;
+ devno = MKDEV(globalmem_major,index);
  cdev_init(&dev->cdev,&globalmem_fops);
  dev->cdev.owner = THIS_MODULE;
  //dev->cdev.ops = &globalmem_fops;
@@ -176,12 +182,19 @@ static void globalmem_setup_cdev(struct globalmem_dev *dev,int index)
   printk(KERN_NOTICE"Error %d adding LED%d",err,index);
  }
  
+ pclass = class_create(THIS_MODULE,"globalmem");
+ if(!pclass)
+ {
+	printk(KERN_NOTICE"Error create class failed\n");
+ }
+ device_create(pclass,NULL,devno,NULL,"globalmem");
+ 
 }
 /*设备驱动模块加载函数*/
 static int __init globalmem_init(void)
 {
  int result;
- dev_t devno = MKDEV(globalmem_major,0);
+ devno = MKDEV(globalmem_major,0);
  
  if(globalmem_major) //申请设备号
  	result = register_chrdev_region(devno,1,"globalmem");
@@ -216,12 +229,25 @@ module_init(globalmem_init);
 /*模块卸载函数*/
 static void __exit globalmem_exit(void)
 {
- cdev_del(&globalmem_devp->cdev); //注销cdev
- kfree(globalmem_devp);          //释放设备结构体内存
- unregister_chrdev_region(MKDEV(globalmem_major,0),1); //释放设备号
+		printk(KERN_NOTICE"unregister_chrdev_region\n");
+	unregister_chrdev_region(devno,1); //释放设备号
+	
+	printk(KERN_NOTICE"cdev_del\n");
+	cdev_del(&globalmem_devp->cdev); //注销cdev.
+	
+	printk(KERN_NOTICE"kfree\n");
+	kfree(globalmem_devp);          //释放设备结构体内存
+	
+	printk(KERN_NOTICE"device_destroy\n");
+	device_destroy(pclass,devno);
+	
+	printk(KERN_NOTICE"class_destroy\n");
+	class_destroy(pclass);
+	
+	printk(KERN_NOTICE"all done\n");
+ 
 }
 module_exit(globalmem_exit); 
-
 
 MODULE_AUTHOR("NOODLE");
 MODULE_LICENSE("GPL");
