@@ -7,15 +7,21 @@
 #include <linux/uaccess.h>
 #include <linux/slab.h>
 
-
+#define AUTO_DEV_NODE	1
  
 #define GLOBALMEM_SIZE 0X1000 /*全局内存最大4KB*/
 #define MEM_CLEAR 0x1 /*清零全局内存*/
 #define GLOBALMEM_MAJOR 220
  
 static int globalmem_major = GLOBALMEM_MAJOR;/*预设的globalmem的主设备号*/
+
+#if AUTO_DEV_NODE == 1
 static struct class *pclass;
+#endif
+
 static dev_t devno;
+
+
 
 /*globalmem的设备结构体：包含了对应于globalmem字符设备的cdev 和 使用内存mem[GLOBALMEM_SIZE]*/
 struct globalmem_dev
@@ -88,7 +94,7 @@ static ssize_t globalmem_write(struct file *filp,const char __user *buf,size_t s
 {
  unsigned long p = *ppos;
  unsigned int count = size;
- int ret;
+ int ret=0;
  
  struct globalmem_dev *dev = filp->private_data;
  
@@ -118,6 +124,7 @@ static ssize_t globalmem_write(struct file *filp,const char __user *buf,size_t s
 static loff_t globalmem_llseek(struct file *filp,loff_t offset,int orig)
 {
  loff_t ret = 0;
+ printk(KERN_NOTICE"seek in offset: %d, orig: %d\n",offset,orig);
  switch(orig)
  {
   case 0:   //相对文件开始位置偏移
@@ -181,14 +188,14 @@ static void globalmem_setup_cdev(struct globalmem_dev *dev,int index)
  {
   printk(KERN_NOTICE"Error %d adding LED%d",err,index);
  }
- 
+ #if AUTO_DEV_NODE == 1
  pclass = class_create(THIS_MODULE,"globalmem");
  if(!pclass)
  {
 	printk(KERN_NOTICE"Error create class failed\n");
  }
  device_create(pclass,NULL,devno,NULL,"globalmem");
- 
+ #endif
 }
 /*设备驱动模块加载函数*/
 static int __init globalmem_init(void)
@@ -229,23 +236,16 @@ module_init(globalmem_init);
 /*模块卸载函数*/
 static void __exit globalmem_exit(void)
 {
-		printk(KERN_NOTICE"unregister_chrdev_region\n");
 	unregister_chrdev_region(devno,1); //释放设备号
-	
-	printk(KERN_NOTICE"cdev_del\n");
+
 	cdev_del(&globalmem_devp->cdev); //注销cdev.
-	
-	printk(KERN_NOTICE"kfree\n");
+
 	kfree(globalmem_devp);          //释放设备结构体内存
-	
-	printk(KERN_NOTICE"device_destroy\n");
+#if AUTO_DEV_NODE == 1
 	device_destroy(pclass,devno);
-	
-	printk(KERN_NOTICE"class_destroy\n");
+
 	class_destroy(pclass);
-	
-	printk(KERN_NOTICE"all done\n");
- 
+#endif
 }
 module_exit(globalmem_exit); 
 

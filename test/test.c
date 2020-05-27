@@ -121,7 +121,10 @@ int main(int argc, char *argv)
 		}
 		else if( op_name == 1)
 		{
-			count = read(fd,read_buf,op_len,op_pos);
+			count = lseek(fd,op_pos,0);
+			if(count<0)
+				printf("llseek error\n");
+			count = read(fd,read_buf,op_len,&op_pos);
 			if(count<0)
 				printf("read error\n");
 			else
@@ -137,7 +140,10 @@ int main(int argc, char *argv)
 			printf("input write chars\n");
 			scanf("%s",write_buf);
 			printf("input char: %s\n",write_buf);
-			count = write(fd,write_buf,strlen(write_buf),op_len);
+			count = lseek(fd,op_pos,0);
+			if(count<0)
+				printf("llseek error\n");
+			count = write(fd,write_buf,strlen(write_buf),&op_len);
 			if(count>0)
 				printf("write success: %d\n",count);
 		}
